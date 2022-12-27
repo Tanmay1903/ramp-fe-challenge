@@ -6,6 +6,33 @@ import { useWrappedRequest } from "./useWrappedRequest"
 export function useCustomFetch() {
   const { cache } = useContext(AppContext)
   const { loading, wrappedRequest } = useWrappedRequest()
+  
+  const clearCache = useCallback(() => {
+    if (cache?.current === undefined) {
+      return
+    }
+
+    cache.current = new Map<string, string>()
+  }, [cache])
+
+  const clearCacheByEndpoint = useCallback(
+    (endpointsToClear: RegisteredEndpoints[]) => {
+      if (cache?.current === undefined) {
+        return
+      }
+
+      const cacheKeys = Array.from(cache.current.keys())
+
+      for (const key of cacheKeys) {
+        const clearKey = endpointsToClear.some((endpoint) => key.startsWith(endpoint))
+
+        if (clearKey) {
+          cache.current.delete(key)
+        }
+      }
+    },
+    [cache]
+  )
 
   const fetchWithCache = useCallback(
     async <TData, TParams extends object = object>(
@@ -35,36 +62,12 @@ export function useCustomFetch() {
     ): Promise<TData | null> =>
       wrappedRequest<TData>(async () => {
         const result = await fakeFetch<TData>(endpoint, params)
+        if(endpoint === "setTransactionApproval"){
+          clearCache()
+        }
         return result
       }),
-    [wrappedRequest]
-  )
-
-  const clearCache = useCallback(() => {
-    if (cache?.current === undefined) {
-      return
-    }
-
-    cache.current = new Map<string, string>()
-  }, [cache])
-
-  const clearCacheByEndpoint = useCallback(
-    (endpointsToClear: RegisteredEndpoints[]) => {
-      if (cache?.current === undefined) {
-        return
-      }
-
-      const cacheKeys = Array.from(cache.current.keys())
-
-      for (const key of cacheKeys) {
-        const clearKey = endpointsToClear.some((endpoint) => key.startsWith(endpoint))
-
-        if (clearKey) {
-          cache.current.delete(key)
-        }
-      }
-    },
-    [cache]
+    [wrappedRequest, clearCache]
   )
 
   return { fetchWithCache, fetchWithoutCache, clearCache, clearCacheByEndpoint, loading }
